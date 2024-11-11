@@ -3,7 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const dataRoutes = require('./src/routes/dataRoutes');
+const dataRoutes = require('./src/routes/dataRoutes'); // Certifique-se de que o caminho está correto
 
 const app = express();
 app.use(cors());
