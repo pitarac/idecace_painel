@@ -1,8 +1,6 @@
-// Importar dependências necessárias
 const express = require('express');
 const Response = require('../models/ResponseModel');
 const Student = require('../models/StudentModel');
-
 
 const router = express.Router();
 
@@ -31,7 +29,45 @@ router.get('/responses', async (req, res) => {
   }
 });
 
+/**
+ * Rota: /comments/word-cloud
+ * Função: Processar os comentários e gerar dados para a word cloud
+ */
+router.get('/comments/word-cloud', async (req, res) => {
+  try {
+    // Buscar todos os comentários do banco de dados
+    const responses = await Response.find();
 
+    // Processar os comentários
+    const wordCounts = {};
+    responses.forEach((response) => {
+      if (response.comments) {
+        Object.values(response.comments).forEach((comment) => {
+          comment
+            .toLowerCase()
+            .replace(/[^a-zÀ-ÿ\s]/g, '') // Remove pontuação
+            .split(/\s+/) // Divide em palavras
+            .forEach((word) => {
+              if (word.length > 2) { // Filtra palavras pequenas
+                wordCounts[word] = (wordCounts[word] || 0) + 1;
+              }
+            });
+        });
+      }
+    });
+
+    // Transformar os resultados em um formato amigável
+    const wordCloudData = Object.entries(wordCounts).map(([word, count]) => ({
+      word,
+      count,
+    }));
+
+    res.json(wordCloudData);
+  } catch (error) {
+    console.error('Erro ao processar comentários:', error);
+    res.status(500).json({ error: 'Erro ao processar comentários' });
+  }
+});
 
 /**
  * Rota: /unanswered-students
@@ -57,84 +93,70 @@ router.get('/unanswered-students', async (req, res) => {
  * Parâmetro: unit (opcional) - Filtra as respostas de acordo com a unidade do CEU
  */
 router.get('/processed-responses', async (req, res) => {
-    try {
-      const { unit } = req.query;
-  
-      // Primeiro, filtrar documentos pela unidade (se unit for especificado)
-      let matchStage = {};
-      if (unit && unit !== "Todas") {
-        matchStage = {
-          "answers.1": unit // Filtra as respostas pela unidade especificada (campo "1" representa a unidade do CEU)
-        };
-      }
-  
-      // Pipeline de agregação para processar respostas no MongoDB
-      let aggregationPipeline = [
-        // Filtro inicial pelas respostas de unidade específica
-        { $match: matchStage },
-        
-        // Converter o campo "answers" de objeto para um array de pares chave-valor
-        {
-          $addFields: {
-            answersArray: { $objectToArray: "$answers" }
-          }
-        },
-        // Desagregar o array de respostas em documentos individuais
-        {
-          $unwind: "$answersArray"
-        },
-        // Agrupar por questionId e resposta para contar as ocorrências
-        {
-          $group: {
-            _id: {
-              questionId: "$answersArray.k",
-              answer: "$answersArray.v"
-            },
-            count: { $sum: 1 }
-          }
-        },
-        // Agrupar novamente para juntar todas as respostas de uma pergunta
-        {
-          $group: {
-            _id: "$_id.questionId",
-            options: {
-              $push: {
-                answer: "$_id.answer",
-                count: "$count"
-              }
+  try {
+    const { unit } = req.query;
+
+    let matchStage = {};
+    if (unit && unit !== "Todas") {
+      matchStage = {
+        "answers.1": unit // Filtra as respostas pela unidade especificada (campo "1" representa a unidade do CEU)
+      };
+    }
+
+    let aggregationPipeline = [
+      { $match: matchStage },
+      {
+        $addFields: {
+          answersArray: { $objectToArray: "$answers" }
+        }
+      },
+      { $unwind: "$answersArray" },
+      {
+        $group: {
+          _id: {
+            questionId: "$answersArray.k",
+            answer: "$answersArray.v"
+          },
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $group: {
+          _id: "$_id.questionId",
+          options: {
+            $push: {
+              answer: "$_id.answer",
+              count: "$count"
             }
           }
-        },
-        // Projeção final para estruturar os dados de uma forma amigável
-        {
-          $project: {
-            _id: 0,
-            questionId: "$_id",
-            options: {
-              $arrayToObject: {
-                $map: {
-                  input: "$options",
-                  as: "option",
-                  in: {
-                    k: "$$option.answer",
-                    v: "$$option.count"
-                  }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          questionId: "$_id",
+          options: {
+            $arrayToObject: {
+              $map: {
+                input: "$options",
+                as: "option",
+                in: {
+                  k: "$$option.answer",
+                  v: "$$option.count"
                 }
               }
             }
           }
         }
-      ];
-  
-      // Executa o pipeline de agregação
-      const processedResponses = await Response.aggregate(aggregationPipeline);
-  
-      // Envia os dados processados como resposta
-      res.json(processedResponses);
-    } catch (error) {
-      console.error('Erro ao processar respostas:', error);
-      res.status(500).json({ error: 'Erro ao processar respostas' });
-    }
-  });
+      }
+    ];
+
+    const processedResponses = await Response.aggregate(aggregationPipeline);
+    res.json(processedResponses);
+  } catch (error) {
+    console.error('Erro ao processar respostas:', error);
+    res.status(500).json({ error: 'Erro ao processar respostas' });
+  }
+});
 
 module.exports = router;

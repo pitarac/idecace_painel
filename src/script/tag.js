@@ -1,7 +1,7 @@
 const axios = require('axios');
 
 // Chave da API do ManyChat
-const MANYCHAT_API_KEY = '1997860:7a9efbfdd5d83c16242688193f5393e5';
+const MANYCHAT_API_KEY = '1997860:42d27c596dae2e907e46d4421c4fc209';
 
 // ID do campo personalizado de "token" no ManyChat
 const TOKEN_FIELD_ID = 12005293; // Substitua pelo ID do campo de token no ManyChat
@@ -60,8 +60,8 @@ async function addTagToSubscriber(subscriberId, tagId) {
 
 // Função principal para processar usuários sem resposta e adicionar a tag com uma pausa entre as requisições
 async function tagUnansweredStudents() {
-    const API_URL = 'http://localhost:3000/api/unanswered-students'; // Endpoint para buscar estudantes sem resposta
-    const TAG_ID = 54243818; // ID da tag "Aguardando Resposta" no ManyChat
+    const API_URL = 'https://proced.datasavvy.com.br/api/unanswered-students/'; // Endpoint para buscar estudantes sem resposta
+    const TAG_ID = 54362739; // ID da tag "Aguardando Resposta" no ManyChat
 
     try {
         const response = await axios.get(API_URL);
