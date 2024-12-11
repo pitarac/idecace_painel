@@ -38,18 +38,26 @@ router.get('/comments/word-cloud', async (req, res) => {
     // Buscar todos os comentários do banco de dados
     const responses = await Response.find();
 
-    // Processar os comentários
-    const wordCounts = {};
+    // Objeto para armazenar palavras categorizadas por pergunta
+    const questionWordCounts = {};
+
     responses.forEach((response) => {
       if (response.comments) {
-        Object.values(response.comments).forEach((comment) => {
+        Object.entries(response.comments).forEach(([questionId, comment]) => {
+          // Inicializar a estrutura para a pergunta, se necessário
+          if (!questionWordCounts[questionId]) {
+            questionWordCounts[questionId] = {};
+          }
+
+          // Processar o comentário para contar as palavras
           comment
             .toLowerCase()
             .replace(/[^a-zÀ-ÿ\s]/g, '') // Remove pontuação
             .split(/\s+/) // Divide em palavras
             .forEach((word) => {
               if (word.length > 2) { // Filtra palavras pequenas
-                wordCounts[word] = (wordCounts[word] || 0) + 1;
+                questionWordCounts[questionId][word] =
+                  (questionWordCounts[questionId][word] || 0) + 1;
               }
             });
         });
@@ -57,17 +65,21 @@ router.get('/comments/word-cloud', async (req, res) => {
     });
 
     // Transformar os resultados em um formato amigável
-    const wordCloudData = Object.entries(wordCounts).map(([word, count]) => ({
-      word,
-      count,
+    const result = Object.entries(questionWordCounts).map(([questionId, words]) => ({
+      questionId,
+      words: Object.entries(words).map(([word, count]) => ({
+        word,
+        count,
+      })),
     }));
 
-    res.json(wordCloudData);
+    res.json(result);
   } catch (error) {
     console.error('Erro ao processar comentários:', error);
     res.status(500).json({ error: 'Erro ao processar comentários' });
   }
 });
+
 
 /**
  * Rota: /unanswered-students
