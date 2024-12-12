@@ -9,7 +9,13 @@ const router = express.Router();
  * Função: Obter respostas e informações dos estudantes (rota original)
  */
 router.get('/responses', async (req, res) => {
+  const { token } = req.query;
+
   try {
+    const matchStage = token
+      ? { "student_info.token": token }
+      : {};
+
     const responses = await Response.aggregate([
       {
         $lookup: {
@@ -19,7 +25,8 @@ router.get('/responses', async (req, res) => {
           as: "student_info"
         }
       },
-      { $unwind: "$student_info" }
+      { $unwind: "$student_info" },
+      { $match: matchStage },
     ]);
 
     res.json(responses);
@@ -28,6 +35,7 @@ router.get('/responses', async (req, res) => {
     res.status(500).json({ error: 'Erro ao buscar dados' });
   }
 });
+
 
 /**
  * Rota: /comments/word-cloud
