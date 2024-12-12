@@ -178,5 +178,43 @@ router.get('/processed-responses', async (req, res) => {
     res.status(500).json({ error: 'Erro ao processar respostas' });
   }
 });
+/**
+ * Rota: /tokens
+ * Função: Retornar os tokens de estudantes que têm respostas registradas
+ */
+router.get('/tokens', async (req, res) => {
+  try {
+    const tokens = await Response.aggregate([
+      {
+        $lookup: {
+          from: "students", // Nome da coleção de estudantes
+          localField: "studentId",
+          foreignField: "_id",
+          as: "student_info"
+        }
+      },
+      { $unwind: "$student_info" },
+      {
+        $project: {
+          _id: 0, // Exclui o ID
+          token: "$student_info.token" // Retorna apenas o token
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          tokens: { $addToSet: "$token" } // Remove duplicados
+        }
+      },
+      { $project: { _id: 0, tokens: 1 } } // Formata apenas os tokens na saída
+    ]);
+
+    res.json(tokens.length > 0 ? tokens[0].tokens : []);
+  } catch (error) {
+    console.error('Erro ao buscar tokens:', error);
+    res.status(500).json({ error: 'Erro ao buscar tokens' });
+  }
+});
+
 
 module.exports = router;
